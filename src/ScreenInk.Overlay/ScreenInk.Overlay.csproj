@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ScreenInk.Core\ScreenInk.Core.csproj" />
+    <ProjectReference Include="..\ScreenInk.Native\ScreenInk.Native.csproj" />
+    <ProjectReference Include="..\ScreenInk.Drawing\ScreenInk.Drawing.csproj" />
+    <ProjectReference Include="..\ScreenInk.Input\ScreenInk.Input.csproj" />
+    <ProjectReference Include="..\ScreenInk.Tools\ScreenInk.Tools.csproj" />
+    <InternalsVisibleTo Include="ScreenInk.Overlay.Tests" />
+  </ItemGroup>
+</Project>

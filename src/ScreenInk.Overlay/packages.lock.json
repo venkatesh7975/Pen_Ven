@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0-windows10.0.26100": {
+      "screenink.core": {
+        "type": "Project"
+      },
+      "screenink.drawing": {
+        "type": "Project",
+        "dependencies": {
+          "ScreenInk.Core": "[1.0.0, )",
+          "ScreenInk.Native": "[1.0.0, )"
+        }
+      },
+      "screenink.input": {
+        "type": "Project",
+        "dependencies": {
+          "ScreenInk.Core": "[1.0.0, )",
+          "ScreenInk.Native": "[1.0.0, )"
+        }
+      },
+      "screenink.native": {
+        "type": "Project"
+      },
+      "screenink.tools": {
+        "type": "Project",
+        "dependencies": {
+          "ScreenInk.Core": "[1.0.0, )",
+          "ScreenInk.Drawing": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}

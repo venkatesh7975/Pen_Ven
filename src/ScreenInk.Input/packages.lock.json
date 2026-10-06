@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0-windows10.0.26100": {
+      "screenink.core": {
+        "type": "Project"
+      },
+      "screenink.native": {
+        "type": "Project"
+      }
+    }
+  }
+}

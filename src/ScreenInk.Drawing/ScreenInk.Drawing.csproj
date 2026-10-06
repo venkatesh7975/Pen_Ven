@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ScreenInk.Core\ScreenInk.Core.csproj" />
+    <ProjectReference Include="..\ScreenInk.Native\ScreenInk.Native.csproj" />
+    <PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
+    <InternalsVisibleTo Include="ScreenInk.Overlay.Tests" />
+    <InternalsVisibleTo Include="ScreenInk.Overlay" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,25 @@
+<Window x:Class="ScreenInk.App.MediaLibraryWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="ScreenInk · Media">
+    <Grid x:Name="Root" Padding="18" RowSpacing="12" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" RequestedTheme="Dark" AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Spacing="4"><TextBlock Text="A little inspiration" FontSize="22" FontWeight="SemiBold"/><TextBlock Text="Images, videos &amp; words for your screen" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
+            <Button Grid.Column="1" Content="＋ Files" Click="OnFilesClicked" VerticalAlignment="Center" ToolTipService.ToolTip="Add image or video files"/>
+        </Grid>
+        <Border Grid.Row="1" BorderBrush="#7775D6" BorderThickness="1" CornerRadius="12" Padding="12" Background="#207775D6">
+            <TextBlock Text="Drop images, videos or selected text here.&#10;Move / resize cards with Cursor; use Pen to annotate." FontSize="12" TextWrapping="Wrap"/>
+        </Border>
+        <Pivot Grid.Row="2">
+            <PivotItem Header="Images"><Grid RowSpacing="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="SearchBox" PlaceholderText="Search Wikimedia Commons" MaxLength="150" KeyDown="OnSearchKeyDown"/><Button x:Name="SearchButton" Grid.Column="1" Content="Search" Click="OnSearchClicked"/></Grid>
+                <ScrollViewer Grid.Row="1"><StackPanel x:Name="ImageResults" Spacing="12"/></ScrollViewer>
+            </Grid></PivotItem>
+            <PivotItem Header="Words"><Grid RowSpacing="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="WordBox" PlaceholderText="An English word" MaxLength="80"/><Button x:Name="DefineButton" Grid.Column="1" Content="Look up" Click="OnDefineClicked"/></Grid>
+                <TextBox Grid.Row="1" x:Name="DefinitionBox" PlaceholderText="Paste a definition or any text…" AcceptsReturn="True" TextWrapping="Wrap" Height="120" MaxLength="12000"/>
+                <Button Grid.Row="2" Content="＋ Text card" Click="OnTextClicked"/>
+                <ScrollViewer Grid.Row="3"><StackPanel x:Name="WordResults" Spacing="10"/></ScrollViewer>
+            </Grid></PivotItem>
+        </Pivot>
+        <TextBlock Grid.Row="3" x:Name="Status" Text="Search, add, or drag a result onto the screen." TextWrapping="Wrap" FontSize="12" AutomationProperties.LiveSetting="Polite"/>
+    </Grid>
+</Window>
