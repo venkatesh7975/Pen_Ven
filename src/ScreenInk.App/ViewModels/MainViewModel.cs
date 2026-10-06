@@ -34,10 +34,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string HistoryShortcuts => _overlayStatus?.HistoryShortcuts ?? "Initializing ink history…";
     public string ToolStatus => _overlayStatus?.Tool == AnnotationTool.StrokeEraser
         ? "Stroke eraser · removes whole annotations" : _overlayStatus?.Tool == AnnotationTool.Laser
-            ? "Laser · press and drag to point; lift to hide" : $"Tool: {_overlayStatus?.Tool ?? AnnotationTool.Pen}";
+            ? "Laser · draw temporary trails; pause to fade" : $"Tool: {_overlayStatus?.Tool ?? AnnotationTool.Pen}";
     public string ColorLabel => $"Ink color: {_overlayStatus?.Color.Hex ?? InkColor.Default.Hex}";
     public string PenSizeLabel => $"Pen / shape width: {_overlayStatus?.PenWidth ?? 4:0} px";
     public string EraserSizeLabel => $"Eraser diameter: {_overlayStatus?.EraserDiameter ?? 24:0} physical px";
+    public string LaserDelayLabel => $"Laser delay: {(_overlayStatus?.LaserDelayMilliseconds ?? 1200) / 1000:0.0} seconds";
 
     public string ApplicationName => ApplicationInfo.Name;
     public string DevelopmentStage => ApplicationInfo.Stage;
@@ -74,6 +75,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (previous?.Color != status.Color) { OnPropertyChanged(nameof(ColorLabel)); }
         if (previous?.PenWidth != status.PenWidth) { OnPropertyChanged(nameof(PenSizeLabel)); }
         if (previous?.EraserDiameter != status.EraserDiameter) { OnPropertyChanged(nameof(EraserSizeLabel)); }
+        if (previous?.LaserDelayMilliseconds != status.LaserDelayMilliseconds) { OnPropertyChanged(nameof(LaserDelayLabel)); }
         if (previous?.CanUndo != status.CanUndo) { OnPropertyChanged(nameof(CanUndo)); }
         if (previous?.CanRedo != status.CanRedo) { OnPropertyChanged(nameof(CanRedo)); }
         if (previous is null || previous.UndoDescription != status.UndoDescription) { OnPropertyChanged(nameof(UndoTooltip)); }

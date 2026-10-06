@@ -27,7 +27,7 @@
                         <MenuFlyoutItem Text="Ellipse" KeyboardAcceleratorTextOverride="Ctrl+Alt+4" Tag="Ellipse" Click="OnShapeClicked"/>
                     </MenuFlyout></Button.Flyout>
                 </Button>
-                <Button x:Name="LaserButton" Style="{StaticResource ToolButtonStyle}" Click="OnLaserClicked" AutomationProperties.Name="Laser pointer" ToolTipService.ToolTip="Laser · press and drag to point; lift to hide (Ctrl+Alt+L)">
+                <Button x:Name="LaserButton" Style="{StaticResource ToolButtonStyle}" Click="OnLaserClicked" AutomationProperties.Name="Laser pointer" ToolTipService.ToolTip="Laser · draw a temporary trail; pause to fade (Ctrl+Alt+L)">
                     <PathIcon Data="M12,0 L12,5 L10,5 L10,0 Z M12,17 L12,22 L10,22 L10,17 Z M0,10 L5,10 L5,12 L0,12 Z M17,10 L22,10 L22,12 L17,12 Z M11,6 C18,6 18,16 11,16 C4,16 4,6 11,6 Z"/>
                 </Button>
                 <Rectangle Height="1" Margin="8,3" Fill="{ThemeResource CardStrokeColorDefaultBrush}"/>
@@ -56,6 +56,9 @@
                         <Slider x:Name="PenSizeSlider" Minimum="1" Maximum="32" Value="4" StepFrequency="1" ValueChanged="OnPenSizeChanged" AutomationProperties.Name="Pen and shape width in pixels"/>
                         <TextBlock Text="{x:Bind ViewModel.EraserSizeLabel, Mode=OneWay}"/>
                         <Slider x:Name="EraserSizeSlider" Minimum="4" Maximum="128" Value="24" StepFrequency="1" ValueChanged="OnEraserSizeChanged" AutomationProperties.Name="Stroke eraser diameter in physical pixels"/>
+                        <TextBlock Text="{x:Bind ViewModel.LaserDelayLabel, Mode=OneWay}"/>
+                        <Slider x:Name="LaserDelaySlider" Minimum="0.2" Maximum="5" Value="1.2" StepFrequency="0.1" ValueChanged="OnLaserDelayChanged" AutomationProperties.Name="Laser trail delay in seconds"/>
+                        <TextBlock Text="Marks stay visible after you draw, then fade together. New strokes restart the delay." TextWrapping="Wrap" FontSize="12"/>
                     </StackPanel></Flyout></Button.Flyout>
                 </Button>
                 <Rectangle Height="1" Margin="8,3" Fill="{ThemeResource CardStrokeColorDefaultBrush}"/>
@@ -76,7 +79,7 @@
                     <SymbolIcon Symbol="More"/>
                     <Button.Flyout><Flyout Placement="Left" ShouldConstrainToRootBounds="False"><ScrollViewer MaxHeight="600"><StackPanel Width="300" Spacing="10">
                         <TextBlock Text="ScreenInk" Style="{ThemeResource SubtitleTextBlockStyle}"/>
-                        <TextBlock Text="Choose Pen or a shape, then draw outside this toolbar. Cursor lets you use other apps. Laser appears while you press and drag." TextWrapping="Wrap"/>
+                        <TextBlock Text="Choose Pen or a shape, then draw outside this toolbar. Cursor lets you use other apps. Laser leaves temporary trails that fade after you pause." TextWrapping="Wrap"/>
                         <TextBlock Text="{x:Bind ViewModel.ToolStatus, Mode=OneWay}" TextWrapping="Wrap"/>
                         <TextBlock Text="{x:Bind ViewModel.OverlayModeLabel, Mode=OneWay}" TextWrapping="Wrap"/>
                         <TextBlock Text="{x:Bind ViewModel.OverlayDetails, Mode=OneWay}" TextWrapping="Wrap"/>

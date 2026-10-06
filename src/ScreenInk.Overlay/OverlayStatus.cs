@@ -7,4 +7,4 @@ public sealed record OverlayStatus(OverlayMode Mode, MonitorBounds Bounds, int C
     AnnotationTool Tool = AnnotationTool.Pen, float EraserDiameter = 24,
     bool CanUndo = false, bool CanRedo = false, string? UndoDescription = null, string? RedoDescription = null,
     string HistoryShortcuts = "Ctrl+Z / Ctrl+Y control ink in draw mode; buttons work in every mode.",
-    InkColor Color = default, float PenWidth = 4);
+    InkColor Color = default, float PenWidth = 4, double LaserDelayMilliseconds = 1200);

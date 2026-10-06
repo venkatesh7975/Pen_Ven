@@ -276,6 +276,8 @@ public sealed partial class MainWindow : Window
         => _overlay?.SetEraserDiameter((float)args.NewValue);
     private void OnPenSizeChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs args)
         => _overlay?.SetPenWidth((float)args.NewValue);
+    private void OnLaserDelayChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs args)
+        => _overlay?.SetLaserDelay(args.NewValue * 1000);
     private void OnColorChanged(ColorPicker sender, ColorChangedEventArgs args)
         => _overlay?.SetColor(new(args.NewColor.R, args.NewColor.G, args.NewColor.B));
     private void OnQuickColorClicked(object sender, RoutedEventArgs args)
@@ -322,6 +324,7 @@ public sealed partial class MainWindow : Window
         ColorSwatch.Fill = new SolidColorBrush(Color.FromArgb(255, status.Color.Red, status.Color.Green, status.Color.Blue));
         PenSizeSlider.Value = status.PenWidth;
         EraserSizeSlider.Value = status.EraserDiameter;
+        LaserDelaySlider.Value = status.LaserDelayMilliseconds / 1000;
     }
 
     private void OnWindowClosed(object sender, WindowEventArgs args)

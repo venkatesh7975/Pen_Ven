@@ -33,6 +33,7 @@ internal static class NativeMethods
     internal const uint PointerCaptureChanged = 0x024C;
     internal const uint TabletQuerySystemGestureStatus = 0x02CC;
     internal const uint HotKey = 0x0312;
+    internal const uint Timer = 0x0113;
     internal const uint DisplayChange = 0x007E;
     internal const uint DpiChanged = 0x02E0;
     internal const uint Close = 0x0010;
@@ -214,6 +215,11 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool UnregisterHotKey(nint window, int id);
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern nuint SetTimer(nint window, nuint id, uint milliseconds, nint callback);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool KillTimer(nint window, nuint id);
     [DllImport("user32.dll")]
     internal static extern nint WindowFromPoint(Point point);
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]

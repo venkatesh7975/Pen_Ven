@@ -104,6 +104,50 @@ public sealed unsafe class InkSurface : IDisposable
     public void DrawDot(Vector2 desktopPoint, InkStyle style)
         => DrawDot(new InkSample(desktopPoint), style);
 
+    public void DrawLaserTrail(LaserTrail trail)
+    {
+        Verify();
+        _target->BeginDraw();
+        try {
+            _target->Clear(null);
+            foreach (var path in trail.Paths) {
+                var points = path.Points;
+                if (points.Count == 0) { continue; }
+                foreach (var (width, alpha) in new[] { (14f, 40), (7f, 150), (3f, 235) }) {
+                    SetColor(new InkStyle(width, path.Color.Red, path.Color.Green, path.Color.Blue, (byte)(alpha * trail.Opacity)));
+                    // One connected native path per layer avoids overbright joins.
+                    ID2D1PathGeometry* geometry = null;
+                    ID2D1GeometrySink* sink = null;
+                    try {
+                        _factory->CreatePathGeometry(&geometry);
+                        geometry->Open(&sink);
+                        sink->BeginFigure(Local(points[0]), D2D1_FIGURE_BEGIN.D2D1_FIGURE_BEGIN_HOLLOW);
+                        for (var index = 1; index < points.Count; index++) {
+                            var curve = new D2D1_QUADRATIC_BEZIER_SEGMENT {
+                                point1 = Local(points[index - 1]), point2 = Local((points[index - 1] + points[index]) / 2)
+                            };
+                            sink->AddQuadraticBezier(&curve);
+                        }
+                        if (points.Count > 1) { sink->AddLine(Local(points[^1])); }
+                        sink->EndFigure(D2D1_FIGURE_END.D2D1_FIGURE_END_OPEN);
+                        sink->Close();
+                        if (points.Count == 1) { Dot(points[0], width); }
+                        else { _target->DrawGeometry((ID2D1Geometry*)geometry, (ID2D1Brush*)_brush, width, _roundStroke); }
+                    } finally {
+                        if (sink != null) { sink->Release(); }
+                        if (geometry != null) { geometry->Release(); }
+                    }
+                }
+            }
+            if (trail.Paths.Count > 0) {
+                var head = trail.Paths[^1].Points[^1];
+                var color = trail.Paths[^1].Color;
+                SetColor(new InkStyle(20, color.Red, color.Green, color.Blue, (byte)(50 * trail.Opacity))); Dot(head, 20);
+                SetColor(new InkStyle(5, 255, 255, 255, (byte)(255 * trail.Opacity))); Dot(head, 5);
+            }
+        } finally { _target->EndDraw().ThrowOnFailure(); }
+    }
+
     public void DrawDot(InkSample sample, InkStyle style)
     {
         Verify();

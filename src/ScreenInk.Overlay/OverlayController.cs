@@ -42,6 +42,10 @@ public sealed class OverlayController : IDisposable
     private Vector2? _laserPoint;
     private NativeWindow? _laserWindow;
     private InkSurface? _laserSurface;
+    private readonly LaserTrail _laserTrail = new();
+    private readonly TimeProvider _timeProvider;
+    private bool _laserTimerRunning;
+    private double LaserNow => _timeProvider.GetTimestamp() * 1000d / _timeProvider.TimestampFrequency;
     private bool _previewDirty;
     private Vector2? _erasePoint;
     private int _erasedInContact;
@@ -61,6 +65,7 @@ public sealed class OverlayController : IDisposable
     public float EraserDiameter { get; private set; } = 24;
     public InkColor Color { get; private set; } = InkColor.Default;
     public float PenWidth { get; private set; } = 4;
+    public double LaserDelayMilliseconds => _laserTrail.DelayMilliseconds;
     private InkStyle CurrentStyle => new(PenWidth, Color.Red, Color.Green, Color.Blue);
     public bool HotkeysReady => _toggleRegistered && _hideRegistered;
     public string HotkeyStatus { get; }
@@ -70,20 +75,33 @@ public sealed class OverlayController : IDisposable
         _history.CanUndo || _builder is not null || _shapeDraft?.IsMeaningful == true || _eraseCommands.Count > 0,
         _history.CanRedo && _builder is null && _shapeDraft?.IsMeaningful != true && _eraseCommands.Count == 0,
         _builder is not null ? "Draw stroke" : _shapeDraft?.IsMeaningful == true ? $"Draw {_shapeDraft.Stroke.Tool}" : _eraseCommands.Count > 0 ? "Erase strokes" : _history.UndoDescription,
-        _history.RedoDescription, _historyShortcuts, Color, PenWidth);
+        _history.RedoDescription, _historyShortcuts, Color, PenWidth, LaserDelayMilliseconds);
     public event EventHandler<OverlayStatus>? StatusChanged;
 
     internal nint InputHandle => _input.Handle;
     internal nint VisualHandle => _visual.Handle;
     internal uint ReadInkPixel(int x, int y) => _surface?.ReadPixel(x, y) ?? 0;
     internal IReadOnlyList<InkStroke> Strokes => _strokes;
-    internal bool LaserVisible => _laserPoint.HasValue;
+    internal bool LaserVisible => _laserTrail.Visible;
+    internal bool LaserTimerRunning => _laserTimerRunning;
+    internal uint ReadLaserPixel(int x, int y) => LaserVisible && _laserSurface is { } surface && x >= surface.Left && y >= surface.Top &&
+        x < surface.Left + surface.Width && y < surface.Top + surface.Height ? surface.ReadPixel(x - surface.Left, y - surface.Top) : 0;
+
+    public void SetLaserDelay(double milliseconds)
+    {
+        VerifyEditable();
+        if (!double.IsFinite(milliseconds) || milliseconds is < 200 or > 5000) { throw new ArgumentOutOfRangeException(nameof(milliseconds)); }
+        if (LaserDelayMilliseconds == milliseconds) { return; }
+        _laserTrail.DelayMilliseconds = milliseconds;
+        Publish();
+    }
 
     public void SetColor(InkColor color)
     {
         VerifyEditable();
         if (Color == color) { return; }
         FinishStroke();
+        ClearLaser();
         Color = color;
         Publish();
     }
@@ -107,6 +125,7 @@ public sealed class OverlayController : IDisposable
         if (!Enum.IsDefined(tool)) { throw new ArgumentOutOfRangeException(nameof(tool)); }
         if (Tool == tool) { return; }
         FinishStroke();
+        ClearLaser();
         Tool = tool;
         Publish();
     }
@@ -181,8 +200,9 @@ public sealed class OverlayController : IDisposable
         _input.VerifyThread();
     }
 
-    public OverlayController(nint controlWindow, IPenInputReader? penReader = null, bool keepControlTopmost = false)
+    public OverlayController(nint controlWindow, IPenInputReader? penReader = null, bool keepControlTopmost = false, TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _penReader = penReader ?? new PenInputReader();
         _controlWindow = controlWindow;
         _keepControlTopmost = keepControlTopmost;
@@ -267,6 +287,7 @@ public sealed class OverlayController : IDisposable
         _updating = true;
         try {
             FinishStroke();
+            ClearLaser();
             _input.Hide();
             if (mode == OverlayMode.Disabled) {
                 _visual.Hide();
@@ -381,6 +402,7 @@ public sealed class OverlayController : IDisposable
                 return nint.Zero;
             case NativeMethods.CancelMode:
                 FinishStroke();
+                ClearLaser();
                 return nint.Zero;
             case NativeMethods.DisplayChange:
             case NativeMethods.DpiChanged:
@@ -417,6 +439,7 @@ public sealed class OverlayController : IDisposable
             if (frame.Canceled) {
                 FlushSegments();
                 if (_activePenId == pointerId) { FinishStroke(); }
+                ClearLaser();
                 _penDetails = DescribePen(frame.Sample);
                 _pointerStatus = "Pen contact interrupted.";
                 Publish();
@@ -533,7 +556,7 @@ public sealed class OverlayController : IDisposable
         _builder = null;
         _shapeDraft = null;
         _laserPoint = null;
-        _laserWindow?.Hide();
+        ClearLaser();
         _previewDirty = false;
         _erasePoint = null;
         _eraseDirty = false;
@@ -604,9 +627,10 @@ public sealed class OverlayController : IDisposable
                 Publish();
             }
             if (laser) {
-                _laserWindow?.Hide();
+                _laserTrail.End(LaserNow);
                 _previewDirty = false;
-                _pointerStatus = "Laser released · no ink added";
+                RenderLaser();
+                _pointerStatus = "Laser released · trail fades after a short delay";
                 Publish();
             }
         } finally { _capture.Release(); }
@@ -631,7 +655,7 @@ public sealed class OverlayController : IDisposable
             _pointerStatus = $"Drawing {Tool} · drag to set its size";
         } else if (Tool == AnnotationTool.Laser) {
             BeginLaser(sample.Position);
-            _pointerStatus = "Laser active · press and drag to point; lift to hide";
+            _pointerStatus = "Laser active · draw temporary trails; pause to fade";
         } else {
             _builder = new StrokeBuilder(sample, CurrentStyle, kind);
             _strokes.Add(_builder.Stroke);
@@ -643,7 +667,11 @@ public sealed class OverlayController : IDisposable
     private void UpdatePreview(Vector2 point)
     {
         if (_shapeDraft is not null) { _shapeDraft.Update(point); }
-        if (_laserPoint.HasValue) { _laserPoint = point; }
+        if (_laserPoint.HasValue) {
+            _laserPoint = point;
+            _laserTrail.Move(point, LaserNow);
+            EnsureLaserTimer();
+        }
         _previewDirty = true;
     }
 
@@ -651,25 +679,78 @@ public sealed class OverlayController : IDisposable
     {
         if (_laserWindow is null) {
             _laserWindow = new NativeWindow("ScreenInk laser", NativeMethods.Topmost | NativeMethods.ToolWindow |
-                NativeMethods.NoActivate | NativeMethods.Layered | NativeMethods.Transparent, 0, 0, 32, 32);
+                NativeMethods.NoActivate | NativeMethods.Layered | NativeMethods.Transparent, 0, 0, 1, 1);
             _laserWindow.CallbackFailed += OnCallbackFailed;
-            _laserSurface = new InkSurface(0, 0, 32, 32);
+            _laserWindow.MessageHandler = OnLaserMessage;
         }
-        _laserSurface!.Redraw([], false, false);
-        _laserSurface.DrawDot(new Vector2(16, 16), new InkStyle(28, Color.Red, Color.Green, Color.Blue, 50));
-        _laserSurface.DrawDot(new Vector2(16, 16), new InkStyle(16, Color.Red, Color.Green, Color.Blue, 160));
-        _laserSurface.DrawDot(new Vector2(16, 16), new InkStyle(6, 255, 255, 255));
-        _laserSurface.Present(_laserWindow.Handle);
+        _laserTrail.Begin(point, Color, LaserNow);
         _laserPoint = point;
         _previewDirty = true;
+        EnsureLaserTimer();
+        RenderLaser();
+    }
+
+    private void EnsureLaserTimer()
+    {
+        if (!_laserTimerRunning) {
+            if (NativeMethods.SetTimer(_laserWindow!.Handle, 1, 33, 0) == 0) { throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not start the laser fade timer."); }
+            _laserTimerRunning = true;
+        }
+    }
+
+    private nint? OnLaserMessage(uint message, nuint wParam, nint lParam)
+    {
+        if (message != NativeMethods.Timer || wParam != 1) { return null; }
+        if (!_disposed && _laserTimerRunning) { AdvanceLaser(); }
+        return nint.Zero;
+    }
+
+    internal void AdvanceLaser()
+    {
+        VerifyEditable();
+        var changed = _laserTrail.Advance(LaserNow);
+        if (!_laserTrail.Visible) { ClearLaser(); return; }
+        if (changed || _previewDirty) { RenderLaser(); }
+    }
+
+    private void ClearLaser()
+    {
+        _laserTrail.Clear();
+        _laserWindow?.Hide();
+        if (_laserTimerRunning && _laserWindow is not null) { NativeMethods.KillTimer(_laserWindow.Handle, 1); }
+        _laserTimerRunning = false;
+    }
+
+    private void RenderLaser()
+    {
+        if (!_laserTrail.Visible || _laserWindow is null) { return; }
+        var minimum = new Vector2(float.MaxValue);
+        var maximum = new Vector2(float.MinValue);
+        foreach (var path in _laserTrail.Paths) {
+            foreach (var point in path.Points) { minimum = Vector2.Min(minimum, point); maximum = Vector2.Max(maximum, point); }
+        }
+        // Tile-aligned bounds reduce bitmap reallocations while drawing. Clamp to this monitor.
+        var left = Math.Max(Bounds.Left, (int)(Math.Floor((minimum.X - 12) / 64) * 64));
+        var top = Math.Max(Bounds.Top, (int)(Math.Floor((minimum.Y - 12) / 64) * 64));
+        var right = Math.Min(Bounds.Left + Bounds.Width, (int)(Math.Ceiling((maximum.X + 12) / 64) * 64));
+        var bottom = Math.Min(Bounds.Top + Bounds.Height, (int)(Math.Ceiling((maximum.Y + 12) / 64) * 64));
+        if (right <= left || bottom <= top) { _laserWindow.Hide(); return; }
+        if (_laserSurface is null || _laserSurface.Left != left || _laserSurface.Top != top ||
+            _laserSurface.Width != right - left || _laserSurface.Height != bottom - top) {
+            _laserSurface?.Dispose();
+            _laserSurface = new InkSurface(left, top, right - left, bottom - top);
+        }
+        _laserSurface.DrawLaserTrail(_laserTrail);
+        _laserSurface.Present(_laserWindow.Handle);
+        _laserWindow.Position(left, top, right - left, bottom - top, true);
+        _previewDirty = false;
     }
 
     private void PresentContact()
     {
         if (_erasePoint.HasValue) { PresentErasedInk(); return; }
-        if (_laserPoint is { } laser) {
-            if (_previewDirty) { _laserWindow!.Position((int)MathF.Round(laser.X) - 16, (int)MathF.Round(laser.Y) - 16, 32, 32, true); }
-            _previewDirty = false;
+        if (_laserPoint.HasValue) {
+            // The native timer coalesces pen history and mouse movement into one frame.
             return;
         }
         if (_shapeDraft is not null) {
@@ -710,6 +791,7 @@ public sealed class OverlayController : IDisposable
         _builder = null;
         _shapeDraft = null;
         _laserPoint = null;
+        ClearLaser();
         _erasePoint = null;
         _activePenId = null;
         _eraseCommands.Clear();

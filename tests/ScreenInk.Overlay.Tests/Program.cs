@@ -28,6 +28,11 @@ CheckInkHistory();
 CheckViewModel();
 CheckShapeRendering();
 CheckScreenshotCapture();
+CheckLaserTrail();
+if (args.Contains("--render-only")) {
+    Console.WriteLine("PASS: Rendering and model checks completed; native controller checks were not requested.");
+    return;
+}
 
 using var fixture = StartFixture();
 try {
@@ -124,6 +129,51 @@ static void Require(bool condition, string message)
 }
 
 static nint MousePosition(int x, int y) => new(unchecked((int)(((uint)(ushort)y << 16) | (ushort)x)));
+
+static void CheckLaserTrail()
+{
+    var trail = new LaserTrail();
+    var red = new InkColor(255, 30, 30);
+    trail.Begin(new(-80, 30), red, 0);
+    trail.Move(new(-20, 30), 100);
+    trail.End(200);
+    trail.Advance(1299);
+    Require(trail.Visible && trail.PointCount == 2 && trail.Opacity == 1, "Laser marks remain intact throughout the delay after release.");
+    trail.Begin(new(-80, 60), red, 1300);
+    trail.Move(new(-20, 60), 1400);
+    trail.End(1400);
+    Require(trail.Paths.Count == 2 && trail.PointCount == 4, "Quick successive laser strokes share a session and remain separate paths.");
+    trail.Advance(2500);
+    Require(trail.Opacity == 1 && trail.PointCount == 4, "A new stroke restarts the delay for the whole group.");
+    using var surface = new InkSurface(-100, 0, 120, 100);
+    surface.DrawLaserTrail(trail);
+    var fullAlpha = surface.ReadPixel(50, 30) >> 24;
+    Require(fullAlpha > 100 && surface.ReadPixel(50, 45) == 0 && surface.ReadPixel(1, 1) == 0,
+        "Laser paths render connected glow without a line between separate strokes or a background rectangle.");
+    trail.Advance(2850);
+    surface.DrawLaserTrail(trail);
+    var fadedPixel = surface.ReadPixel(50, 60);
+    Require(trail.Visible && trail.PointCount < 4 && trail.Opacity is > 0 and < 1 &&
+        (fadedPixel >> 24) > 0 && (fadedPixel >> 24) < fullAlpha && ((fadedPixel >> 16) & 255) <= (fadedPixel >> 24),
+        "Grouped fade removes older points and reduces premultiplied glow alpha.");
+    trail.Advance(3100);
+    surface.DrawLaserTrail(trail);
+    Require(!trail.Visible && trail.Paths.Count == 0 && surface.ReadPixel(50, 60) == 0, "The complete group disappears after the fixed fade duration.");
+    trail.DelayMilliseconds = 3000;
+    trail.Begin(new(0, 0), red, 4000); trail.End(4000); trail.Advance(6500);
+    Require(trail.Visible && trail.Opacity == 1, "The configurable delay keeps marks visible for longer.");
+    trail.Advance(7500);
+    Require(!trail.Visible, "Skipped animation frames still expire the trail at the correct time.");
+    trail.DelayMilliseconds = 1200;
+    trail.Begin(new(0, 0), red, 8000);
+    for (var i = 1; i < LaserTrail.MaxPoints + 50; i++) { trail.Move(new(i, 0), 8000 + i * .01); }
+    Require(trail.PointCount == LaserTrail.MaxPoints, "Long laser drags have bounded sample storage.");
+    trail.Clear();
+    for (var i = 0; i < LaserTrail.MaxPaths + 10; i++) { trail.Begin(new(i, 0), red, 10000); trail.End(10000); }
+    Require(trail.Paths.Count == LaserTrail.MaxPaths, "Repeated laser dots have bounded path storage.");
+    trail.Clear();
+    Require(!trail.Visible, "Canceling a laser session removes all temporary marks immediately.");
+}
 
 static void CheckFeatureShortcuts()
 {
@@ -735,7 +785,8 @@ static void CheckShapeRendering()
 static void CheckToolbarTools()
 {
     var reader = new TestPenReader();
-    using var overlay = new OverlayController(0, reader);
+    var clock = new TestTimeProvider();
+    using var overlay = new OverlayController(0, reader, timeProvider: clock);
     overlay.SetMode(OverlayMode.Draw);
     overlay.SetColor(new InkColor(0, 80, 255));
     overlay.SetPenWidth(6);
@@ -779,13 +830,25 @@ static void CheckToolbarTools()
     overlay.SetTool(AnnotationTool.Laser);
     overlay.OnInputMessage(NativeMethods.LeftButtonDown, 1, MousePosition(600, 400));
     overlay.OnInputMessage(NativeMethods.MouseMove, 1, MousePosition(620, 420));
+    overlay.AdvanceLaser();
     Require(overlay.LaserVisible && overlay.Strokes.SequenceEqual(beforeLaser) && overlay.ReadInkPixel(620, 420) == 0,
-        "Laser contact shows a separate temporary pointer without adding ink or history.");
+        "Laser contact shows a separate temporary trail without adding ink or history.");
+    Require(overlay.ReadLaserPixel(overlay.Bounds.Left + 610, overlay.Bounds.Top + 410) >> 24 > 0,
+        "Native laser output connects earlier and current pointer positions.");
     overlay.OnInputMessage(NativeMethods.LeftButtonUp, 0, MousePosition(620, 420));
-    Require(!overlay.LaserVisible && NativeMethods.GetCapture() != overlay.InputHandle, "Releasing the laser hides it and releases mouse capture.");
+    Require(overlay.LaserVisible && overlay.LaserTimerRunning && NativeMethods.GetCapture() != overlay.InputHandle,
+        "Releasing the laser retains its fading trail and releases mouse capture immediately.");
+    clock.Milliseconds = 1400; overlay.AdvanceLaser();
+    Require(overlay.LaserVisible, "The laser stays visible during its fade after release.");
+    clock.Milliseconds = 1700; overlay.AdvanceLaser();
+    Require(!overlay.LaserVisible && !overlay.LaserTimerRunning && overlay.Strokes.SequenceEqual(beforeLaser),
+        "Laser expiration hides the trail, stops the animation timer, and preserves retained ink.");
     overlay.OnInputMessage(NativeMethods.LeftButtonDown, 1, MousePosition(600, 400));
+    clock.Milliseconds = 3400; overlay.AdvanceLaser();
+    overlay.OnInputMessage(NativeMethods.MouseMove, 1, MousePosition(630, 430)); overlay.AdvanceLaser();
+    Require(overlay.LaserVisible && overlay.LaserTimerRunning, "Movement after a stationary held laser expires restarts its trail and timer.");
     overlay.SetMode(OverlayMode.Disabled);
-    Require(!overlay.LaserVisible && overlay.Strokes.SequenceEqual(beforeLaser), "Hiding during laser contact clears the pointer and preserves retained ink.");
+    Require(!overlay.LaserVisible && !overlay.LaserTimerRunning && overlay.Strokes.SequenceEqual(beforeLaser), "Hiding during laser contact clears the trail, stops its timer, and preserves retained ink.");
     overlay.SetMode(OverlayMode.Draw);
     overlay.SetTool(AnnotationTool.Line);
     var origin = new Vector2(overlay.Bounds.Left + 500, overlay.Bounds.Top + 450);
@@ -863,4 +926,11 @@ sealed class TestPenReader : IPenInputReader
         error = Fail ? "Test: Windows pen data unavailable." : null;
         return !Fail;
     }
+}
+
+sealed class TestTimeProvider : TimeProvider
+{
+    public long Milliseconds { get; set; }
+    public override long TimestampFrequency => 1000;
+    public override long GetTimestamp() => Milliseconds;
 }
