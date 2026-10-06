@@ -109,6 +109,7 @@ try {
     CheckEraserController();
     CheckUndoController();
     CheckToolbarTools();
+    CheckFeatureShortcuts();
     Console.WriteLine("PASS: Floating toolbar tools, shapes, color, laser, history and native input regression checks completed.");
 } finally {
     fixture.StandardInput.WriteLine("exit");
@@ -123,6 +124,83 @@ static void Require(bool condition, string message)
 }
 
 static nint MousePosition(int x, int y) => new(unchecked((int)(((uint)(ushort)y << 16) | (ushort)x)));
+
+static void CheckFeatureShortcuts()
+{
+    using var probe = new NativeWindow("Feature shortcut conflict probe", 0, 0, 0, 1, 1);
+    var penShortcut = FeatureShortcuts.All.Single(shortcut => shortcut.Action == FeatureAction.Pen);
+    Require(NativeMethods.RegisterHotKey(probe.Handle, 201, FeatureShortcuts.Modifiers, penShortcut.VirtualKey),
+        "A separate window can reserve the pen shortcut before ScreenInk starts.");
+    try {
+        using var conflicted = new OverlayController(0);
+        Require(conflicted.HotkeysReady && conflicted.FeatureShortcutStatus.Contains(penShortcut.Gesture),
+            "A feature shortcut conflict is reported without disabling recovery or drawing.");
+        var invoked = false;
+        conflicted.FeatureShortcutInvoked += _ => invoked = true;
+        conflicted.OnVisualMessage(NativeMethods.HotKey, (nuint)penShortcut.Id, 0);
+        Require(!invoked, "Messages for an unavailable shortcut cannot invoke an action.");
+        conflicted.SetMode(OverlayMode.Draw);
+        Require(conflicted.Mode == OverlayMode.Draw, "Drawing remains available when an optional shortcut conflicts.");
+    } finally { NativeMethods.UnregisterHotKey(probe.Handle, 201); }
+
+    var overlay = new OverlayController(0);
+    try {
+        Require(!overlay.FeatureShortcutStatus.Contains("conflict"), "All feature shortcuts register after the conflicting window releases its key.");
+        Require(!NativeMethods.RegisterHotKey(probe.Handle, 201, FeatureShortcuts.Modifiers, penShortcut.VirtualKey),
+            "Windows reserves the registered feature shortcut while ScreenInk is running.");
+        var actions = new List<FeatureAction>();
+        overlay.FeatureShortcutInvoked += action => { actions.Add(action); overlay.ApplyFeatureShortcut(action); };
+        void Invoke(FeatureAction action) => overlay.OnVisualMessage(NativeMethods.HotKey,
+            (nuint)FeatureShortcuts.All.Single(shortcut => shortcut.Action == action).Id, 0);
+
+        Invoke(FeatureAction.Pen);
+        Require(overlay.Mode == OverlayMode.Draw && overlay.Tool == AnnotationTool.Pen, "The pen shortcut enters drawing from a hidden overlay.");
+        overlay.OnInputMessage(NativeMethods.LeftButtonDown, 1, MousePosition(150, 150));
+        overlay.OnInputMessage(NativeMethods.MouseMove, 1, MousePosition(180, 150));
+        Invoke(FeatureAction.Eraser);
+        Require(overlay.Tool == AnnotationTool.StrokeEraser && overlay.Status.StrokeCount == 1 && NativeMethods.GetCapture() != overlay.InputHandle,
+            "A tool shortcut commits active ink and releases pointer capture.");
+        Invoke(FeatureAction.IncreaseSize);
+        Require(overlay.EraserDiameter == 28 && overlay.PenWidth == 4, "Size shortcuts adjust the eraser independently of pen width.");
+        overlay.SetEraserDiameter(128); Invoke(FeatureAction.IncreaseSize);
+        overlay.SetEraserDiameter(4); Invoke(FeatureAction.DecreaseSize);
+        Require(overlay.EraserDiameter == 4, "Eraser size shortcuts respect both limits.");
+        foreach (var (action, tool) in new[] {
+            (FeatureAction.Line, AnnotationTool.Line), (FeatureAction.Arrow, AnnotationTool.Arrow),
+            (FeatureAction.Rectangle, AnnotationTool.Rectangle), (FeatureAction.Ellipse, AnnotationTool.Ellipse),
+            (FeatureAction.Laser, AnnotationTool.Laser)
+        }) {
+            Invoke(action);
+            Require(overlay.Mode == OverlayMode.Draw && overlay.Tool == tool, $"The {tool} shortcut selects its drawing tool.");
+        }
+        overlay.SetPenWidth(32); Invoke(FeatureAction.IncreaseSize);
+        Require(overlay.PenWidth == 32, "Pen size shortcut cannot exceed the maximum width.");
+        overlay.SetPenWidth(1); Invoke(FeatureAction.DecreaseSize);
+        Require(overlay.PenWidth == 1, "Pen size shortcut cannot go below the minimum width.");
+        Invoke(FeatureAction.Cursor);
+        Require(overlay.Mode == OverlayMode.ClickThrough, "The cursor shortcut releases desktop input.");
+        Invoke(FeatureAction.Undo);
+        Require(overlay.Status.StrokeCount == 0 && overlay.Mode == OverlayMode.ClickThrough, "Global undo works in cursor mode without enabling input capture.");
+        overlay.SetMode(OverlayMode.Disabled);
+        Invoke(FeatureAction.Redo);
+        Require(overlay.Status.StrokeCount == 1 && overlay.Mode == OverlayMode.Disabled, "Global redo restores ink while the overlay stays hidden.");
+        Invoke(FeatureAction.ClearAll); Invoke(FeatureAction.Undo);
+        Require(overlay.Status.StrokeCount == 1, "Clear-all shortcut remains undoable while hidden.");
+        foreach (var action in new[] { FeatureAction.Screenshot, FeatureAction.Media, FeatureAction.Color, FeatureAction.Size, FeatureAction.Help, FeatureAction.DeleteSelected }) {
+            Invoke(action);
+            Require(actions[^1] == action && overlay.Mode == OverlayMode.Disabled, $"The {action} shortcut reaches the application without changing overlay mode itself.");
+        }
+        var count = actions.Count;
+        overlay.OnVisualMessage(NativeMethods.HotKey, 9999, 0);
+        Require(actions.Count == count, "Unknown hotkey messages are ignored.");
+        overlay.Dispose();
+        overlay.OnVisualMessage(NativeMethods.HotKey, (nuint)penShortcut.Id, 0);
+        Require(actions.Count == count, "Queued hotkeys cannot invoke a disposed controller.");
+        Require(NativeMethods.RegisterHotKey(probe.Handle, 201, FeatureShortcuts.Modifiers, penShortcut.VirtualKey),
+            "Disposal releases feature shortcuts for other applications.");
+        NativeMethods.UnregisterHotKey(probe.Handle, 201);
+    } finally { overlay.Dispose(); }
+}
 
 static void CheckStrokeEngine()
 {

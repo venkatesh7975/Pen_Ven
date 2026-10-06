@@ -33,6 +33,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        ShortcutHelp.Text = FeatureShortcuts.HelpText;
         var presenter = OverlappedPresenter.CreateForToolWindow();
         presenter.SetBorderAndTitleBar(false, false);
         presenter.IsResizable = false;
@@ -53,6 +54,8 @@ public sealed partial class MainWindow : Window
         try {
             _overlay = new OverlayController(WinRT.Interop.WindowNative.GetWindowHandle(this), keepControlTopmost: true);
             _overlay.StatusChanged += OnOverlayStatusChanged;
+            _overlay.FeatureShortcutInvoked += OnFeatureShortcutInvoked;
+            ShortcutStatus.Text = _overlay.FeatureShortcutStatus;
             Refresh(_overlay.Status);
         } catch (Exception error) { ViewModel.ReportInitializationError(error); }
     }
@@ -128,6 +131,28 @@ public sealed partial class MainWindow : Window
         if (Enum.TryParse<AnnotationTool>((string)((MenuFlyoutItem)sender).Tag, out var tool) && tool.IsShape()) { SelectTool(tool); }
     }
     private void OnClickThroughClicked(object sender, RoutedEventArgs args) => _overlay?.SetMode(OverlayMode.ClickThrough);
+    private void OnFeatureShortcutInvoked(FeatureAction action)
+    {
+        if (_closed || _capturing || _screenshotPickerOpen || _changingToolbar || _overlay is null) { return; }
+        _screenshotFlyout?.Hide();
+        RestoreScreenshotMode();
+        ColorButton.Flyout?.Hide();
+        SizeButton.Flyout?.Hide();
+        MoreButton.Flyout?.Hide();
+        ShapesButton.Flyout?.Hide();
+        if (_overlay.ApplyFeatureShortcut(action)) { return; }
+        if (action == FeatureAction.DeleteSelected) { OnDeleteSelectedClicked(this, new()); return; }
+        ExpandToolbar(false);
+        if (action == FeatureAction.Screenshot) { Activate(); TakeNewScreenshot(); return; }
+        _overlay.SetMode(OverlayMode.ClickThrough);
+        Activate();
+        switch (action) {
+            case FeatureAction.Media: OnMediaClicked(this, new()); break;
+            case FeatureAction.Color: ColorButton.Flyout?.ShowAt(ColorButton); break;
+            case FeatureAction.Size: SizeButton.Flyout?.ShowAt(SizeButton); break;
+            case FeatureAction.Help: MoreButton.Flyout?.ShowAt(MoreButton); break;
+        }
+    }
     private void OnHideOverlayClicked(object sender, RoutedEventArgs args) => CollapseToolbar();
     private void CollapseToolbar()
     {
@@ -241,7 +266,7 @@ public sealed partial class MainWindow : Window
     {
         if (_closed) { return; }
         ScreenshotButton.Background = new SolidColorBrush(sharing ? Color.FromArgb(255, 101, 94, 188) : Color.FromArgb(0, 0, 0, 0));
-        ToolTipService.SetToolTip(ScreenshotButton, sharing ? "Screenshot · QR sharing is on" : "Screenshot · save, copy or share with QR");
+        ToolTipService.SetToolTip(ScreenshotButton, sharing ? "Screenshot · QR sharing is on (Ctrl+Alt+S: new)" : "Screenshot · save, copy or share with QR (Ctrl+Alt+S: new)");
         ToolTipService.SetToolTip(OpenToolbarButton, sharing ? "Open ScreenInk · screenshot sharing is on" : "Open ScreenInk");
     }
     private void OnBoundaryChanged(object sender, RoutedEventArgs args) => _overlay?.SetBoundaryVisible(((CheckBox)sender).IsChecked == true);
@@ -295,6 +320,8 @@ public sealed partial class MainWindow : Window
         ShapesButton.Background = status.Mode == OverlayMode.Draw && status.Tool.IsShape() ? selected : transparent;
         LaserButton.Background = status.Mode == OverlayMode.Draw && status.Tool == AnnotationTool.Laser ? selected : transparent;
         ColorSwatch.Fill = new SolidColorBrush(Color.FromArgb(255, status.Color.Red, status.Color.Green, status.Color.Blue));
+        PenSizeSlider.Value = status.PenWidth;
+        EraserSizeSlider.Value = status.EraserDiameter;
     }
 
     private void OnWindowClosed(object sender, WindowEventArgs args)
@@ -306,6 +333,7 @@ public sealed partial class MainWindow : Window
         if (ToolbarRoot.XamlRoot is { } root) { root.Changed -= OnXamlRootChanged; }
         if (_overlay is null) { return; }
         _overlay.StatusChanged -= OnOverlayStatusChanged;
+        _overlay.FeatureShortcutInvoked -= OnFeatureShortcutInvoked;
         _overlay.Dispose();
         _overlay = null;
     }

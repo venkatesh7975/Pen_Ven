@@ -29,8 +29,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool HasInk => StrokeChoices.Count > 0;
     public bool CanUndo => _overlayStatus?.CanUndo == true;
     public bool CanRedo => _overlayStatus?.CanRedo == true;
-    public string UndoTooltip => $"Undo: {_overlayStatus?.UndoDescription ?? "nothing yet"} (Ctrl+Z in draw mode)";
-    public string RedoTooltip => $"Redo: {_overlayStatus?.RedoDescription ?? "nothing yet"} (Ctrl+Y in draw mode)";
+    public string UndoTooltip => $"Undo: {_overlayStatus?.UndoDescription ?? "nothing yet"} (Ctrl+Alt+Z; Ctrl+Z in draw mode)";
+    public string RedoTooltip => $"Redo: {_overlayStatus?.RedoDescription ?? "nothing yet"} (Ctrl+Alt+Y; Ctrl+Y in draw mode)";
     public string HistoryShortcuts => _overlayStatus?.HistoryShortcuts ?? "Initializing ink history…";
     public string ToolStatus => _overlayStatus?.Tool == AnnotationTool.StrokeEraser
         ? "Stroke eraser · removes whole annotations" : _overlayStatus?.Tool == AnnotationTool.Laser

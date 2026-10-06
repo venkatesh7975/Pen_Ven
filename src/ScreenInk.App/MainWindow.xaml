@@ -13,25 +13,25 @@
                 <Grid Height="20" x:Name="DragGrip" Background="Transparent" PointerPressed="OnGripPressed" PointerMoved="OnGripMoved" PointerReleased="OnGripReleased" PointerCanceled="OnGripReleased" PointerCaptureLost="OnGripCaptureLost" ToolTipService.ToolTip="Drag the toolbar" AutomationProperties.Name="Move ScreenInk toolbar">
                     <TextBlock Text="⠿" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsHitTestVisible="False"/>
                 </Grid>
-                <Button x:Name="CursorButton" Style="{StaticResource ToolButtonStyle}" Click="OnClickThroughClicked" AutomationProperties.Name="Cursor mode" ToolTipService.ToolTip="Cursor · use other apps while keeping ink visible (Ctrl+Alt+F9)">
+                <Button x:Name="CursorButton" Style="{StaticResource ToolButtonStyle}" Click="OnClickThroughClicked" AutomationProperties.Name="Cursor mode" ToolTipService.ToolTip="Cursor · use other apps while keeping ink visible (Ctrl+Alt+C)">
                     <PathIcon Data="M3,1 L3,18 L7,14 L11,22 L14,20 L10,12 L17,12 Z"/>
                 </Button>
-                <Button x:Name="PenButton" Style="{StaticResource ToolButtonStyle}" Click="OnPenClicked" AutomationProperties.Name="Pen" ToolTipService.ToolTip="Pen · click, then draw outside the toolbar"><SymbolIcon Symbol="Edit"/></Button>
-                <Button x:Name="EraserButton" Style="{StaticResource ToolButtonStyle}" Click="OnEraserClicked" AutomationProperties.Name="Stroke eraser" ToolTipService.ToolTip="Eraser · removes the whole annotation you touch"><PathIcon Data="M2,13 L11,2 L22,11 L13,22 L8,22 Z M8,7 L19,16"/></Button>
-                <Button x:Name="ShapesButton" Style="{StaticResource ToolButtonStyle}" AutomationProperties.Name="Shapes" ToolTipService.ToolTip="Shapes · line, arrow, rectangle or ellipse">
+                <Button x:Name="PenButton" Style="{StaticResource ToolButtonStyle}" Click="OnPenClicked" AutomationProperties.Name="Pen" ToolTipService.ToolTip="Pen · draw outside the toolbar (Ctrl+Alt+P)"><SymbolIcon Symbol="Edit"/></Button>
+                <Button x:Name="EraserButton" Style="{StaticResource ToolButtonStyle}" Click="OnEraserClicked" AutomationProperties.Name="Stroke eraser" ToolTipService.ToolTip="Eraser · removes the whole annotation you touch (Ctrl+Alt+E)"><PathIcon Data="M2,13 L11,2 L22,11 L13,22 L8,22 Z M8,7 L19,16"/></Button>
+                <Button x:Name="ShapesButton" Style="{StaticResource ToolButtonStyle}" AutomationProperties.Name="Shapes" ToolTipService.ToolTip="Shapes · Ctrl+Alt+1 / 2 / 3 / 4">
                     <PathIcon Data="M1,2 L20,2 L20,20 L1,20 Z M3,4 L3,18 L18,18 L18,4 Z"/>
                     <Button.Flyout><MenuFlyout Placement="Left" ShouldConstrainToRootBounds="False">
-                        <MenuFlyoutItem Text="Line" Tag="Line" Click="OnShapeClicked"/>
-                        <MenuFlyoutItem Text="Arrow" Tag="Arrow" Click="OnShapeClicked"/>
-                        <MenuFlyoutItem Text="Rectangle" Tag="Rectangle" Click="OnShapeClicked"/>
-                        <MenuFlyoutItem Text="Ellipse" Tag="Ellipse" Click="OnShapeClicked"/>
+                        <MenuFlyoutItem Text="Line" KeyboardAcceleratorTextOverride="Ctrl+Alt+1" Tag="Line" Click="OnShapeClicked"/>
+                        <MenuFlyoutItem Text="Arrow" KeyboardAcceleratorTextOverride="Ctrl+Alt+2" Tag="Arrow" Click="OnShapeClicked"/>
+                        <MenuFlyoutItem Text="Rectangle" KeyboardAcceleratorTextOverride="Ctrl+Alt+3" Tag="Rectangle" Click="OnShapeClicked"/>
+                        <MenuFlyoutItem Text="Ellipse" KeyboardAcceleratorTextOverride="Ctrl+Alt+4" Tag="Ellipse" Click="OnShapeClicked"/>
                     </MenuFlyout></Button.Flyout>
                 </Button>
-                <Button x:Name="LaserButton" Style="{StaticResource ToolButtonStyle}" Click="OnLaserClicked" AutomationProperties.Name="Laser pointer" ToolTipService.ToolTip="Laser · press and drag to point; lift to hide">
+                <Button x:Name="LaserButton" Style="{StaticResource ToolButtonStyle}" Click="OnLaserClicked" AutomationProperties.Name="Laser pointer" ToolTipService.ToolTip="Laser · press and drag to point; lift to hide (Ctrl+Alt+L)">
                     <PathIcon Data="M12,0 L12,5 L10,5 L10,0 Z M12,17 L12,22 L10,22 L10,17 Z M0,10 L5,10 L5,12 L0,12 Z M17,10 L22,10 L22,12 L17,12 Z M11,6 C18,6 18,16 11,16 C4,16 4,6 11,6 Z"/>
                 </Button>
                 <Rectangle Height="1" Margin="8,3" Fill="{ThemeResource CardStrokeColorDefaultBrush}"/>
-                <Button Style="{StaticResource ToolButtonStyle}" AutomationProperties.Name="Ink color" ToolTipService.ToolTip="{x:Bind ViewModel.ColorLabel, Mode=OneWay}">
+                <Button x:Name="ColorButton" Style="{StaticResource ToolButtonStyle}" AutomationProperties.Name="Ink color" ToolTipService.ToolTip="Ink color (Ctrl+Alt+K)">
                     <Ellipse x:Name="ColorSwatch" Width="22" Height="22" Fill="#FF5050" Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1"/>
                     <Button.Flyout><Flyout Placement="Left" ShouldConstrainToRootBounds="False"><StackPanel Width="300" Spacing="12">
                         <TextBlock Text="Ink color" Style="{ThemeResource SubtitleTextBlockStyle}"/>
@@ -49,13 +49,13 @@
                         <TextBlock Text="{x:Bind ViewModel.ColorLabel, Mode=OneWay}"/>
                     </StackPanel></Flyout></Button.Flyout>
                 </Button>
-                <Button Style="{StaticResource ToolButtonStyle}" AutomationProperties.Name="Tool size" ToolTipService.ToolTip="Pen / shape width and eraser diameter">
+                <Button x:Name="SizeButton" Style="{StaticResource ToolButtonStyle}" AutomationProperties.Name="Tool size" ToolTipService.ToolTip="Tool size (Ctrl+Alt+W) · Ctrl+Alt+Up / Down to adjust">
                     <PathIcon Data="M3,4 L19,4 L19,6 L3,6 Z M3,10 L19,10 L19,14 L3,14 Z M3,18 L19,18 L19,24 L3,24 Z"/>
                     <Button.Flyout><Flyout Placement="Left" ShouldConstrainToRootBounds="False"><StackPanel Width="240" Spacing="10">
                         <TextBlock Text="{x:Bind ViewModel.PenSizeLabel, Mode=OneWay}"/>
-                        <Slider Minimum="1" Maximum="32" Value="4" StepFrequency="1" ValueChanged="OnPenSizeChanged" AutomationProperties.Name="Pen and shape width in pixels"/>
+                        <Slider x:Name="PenSizeSlider" Minimum="1" Maximum="32" Value="4" StepFrequency="1" ValueChanged="OnPenSizeChanged" AutomationProperties.Name="Pen and shape width in pixels"/>
                         <TextBlock Text="{x:Bind ViewModel.EraserSizeLabel, Mode=OneWay}"/>
-                        <Slider Minimum="4" Maximum="128" Value="24" StepFrequency="1" ValueChanged="OnEraserSizeChanged" AutomationProperties.Name="Stroke eraser diameter in physical pixels"/>
+                        <Slider x:Name="EraserSizeSlider" Minimum="4" Maximum="128" Value="24" StepFrequency="1" ValueChanged="OnEraserSizeChanged" AutomationProperties.Name="Stroke eraser diameter in physical pixels"/>
                     </StackPanel></Flyout></Button.Flyout>
                 </Button>
                 <Rectangle Height="1" Margin="8,3" Fill="{ThemeResource CardStrokeColorDefaultBrush}"/>
@@ -65,14 +65,14 @@
                 <Button Style="{StaticResource ToolButtonStyle}" Click="OnRedoClicked" IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind ViewModel.RedoTooltip, Mode=OneWay}" AutomationProperties.Name="Redo annotation">
                     <Button.KeyboardAccelerators><KeyboardAccelerator Key="Y" Modifiers="Control" Invoked="OnRedoShortcutInvoked"/></Button.KeyboardAccelerators><SymbolIcon Symbol="Redo"/>
                 </Button>
-                <Button Style="{StaticResource ToolButtonStyle}" Click="OnClearAllClicked" IsEnabled="{x:Bind ViewModel.HasInk, Mode=OneWay}" AutomationProperties.Name="Clear all annotations" ToolTipService.ToolTip="Clear all · Undo restores annotations"><SymbolIcon Symbol="Delete"/></Button>
+                <Button Style="{StaticResource ToolButtonStyle}" Click="OnClearAllClicked" IsEnabled="{x:Bind ViewModel.HasInk, Mode=OneWay}" AutomationProperties.Name="Clear all annotations" ToolTipService.ToolTip="Clear all · Undo restores annotations (Ctrl+Alt+Delete)"><SymbolIcon Symbol="Delete"/></Button>
                 <Rectangle Height="1" Margin="8,3" Fill="{ThemeResource CardStrokeColorDefaultBrush}"/>
-                <Button x:Name="ScreenshotButton" Style="{StaticResource ToolButtonStyle}" Click="OnScreenshotClicked" AutomationProperties.Name="Take screenshot" ToolTipService.ToolTip="Screenshot · save, copy or share with QR">
+                <Button x:Name="ScreenshotButton" Style="{StaticResource ToolButtonStyle}" Click="OnScreenshotClicked" AutomationProperties.Name="Take screenshot" ToolTipService.ToolTip="Screenshot · save, copy or share with QR (Ctrl+Alt+S: new)">
                     <SymbolIcon Symbol="Camera"/>
                 </Button>
-                <Button Style="{StaticResource ToolButtonStyle}" Click="OnMediaClicked" AutomationProperties.Name="Media and definitions" ToolTipService.ToolTip="Images, videos &amp; definition cards"><SymbolIcon Symbol="Pictures"/></Button>
-                <Button Style="{StaticResource ToolButtonStyle}" Click="OnHideOverlayClicked" AutomationProperties.Name="Hide ScreenInk" ToolTipService.ToolTip="Hide toolbar and ink · click the little pen to open"><SymbolIcon Symbol="Back"/></Button>
-                <Button Style="{StaticResource ToolButtonStyle}" AutomationProperties.Name="More options" ToolTipService.ToolTip="Help, display options and annotation list">
+                <Button Style="{StaticResource ToolButtonStyle}" Click="OnMediaClicked" AutomationProperties.Name="Media and definitions" ToolTipService.ToolTip="Images, videos &amp; definition cards (Ctrl+Alt+M)"><SymbolIcon Symbol="Pictures"/></Button>
+                <Button Style="{StaticResource ToolButtonStyle}" Click="OnHideOverlayClicked" AutomationProperties.Name="Hide ScreenInk" ToolTipService.ToolTip="Hide toolbar and ink (Ctrl+Alt+F10)"><SymbolIcon Symbol="Back"/></Button>
+                <Button x:Name="MoreButton" Style="{StaticResource ToolButtonStyle}" AutomationProperties.Name="More options" ToolTipService.ToolTip="Help, shortcuts and annotation list (Ctrl+Alt+H)">
                     <SymbolIcon Symbol="More"/>
                     <Button.Flyout><Flyout Placement="Left" ShouldConstrainToRootBounds="False"><ScrollViewer MaxHeight="600"><StackPanel Width="300" Spacing="10">
                         <TextBlock Text="ScreenInk" Style="{ThemeResource SubtitleTextBlockStyle}"/>
@@ -83,7 +83,11 @@
                         <CheckBox Content="Show monitor boundary" Checked="OnBoundaryChanged" Unchecked="OnBoundaryChanged"/>
                         <CheckBox Content="Light toolbar" Checked="OnThemeChanged" Unchecked="OnThemeChanged"/>
                         <ComboBox ItemsSource="{x:Bind ViewModel.StrokeChoices}" DisplayMemberPath="Label" SelectedItem="{x:Bind ViewModel.SelectedStroke, Mode=TwoWay}" PlaceholderText="No annotations yet" HorizontalAlignment="Stretch" AutomationProperties.Name="Select an annotation to delete"/>
-                        <Button Content="Delete selected" Click="OnDeleteSelectedClicked" IsEnabled="{x:Bind ViewModel.CanDelete, Mode=OneWay}"/>
+                        <Button Content="Delete selected" Click="OnDeleteSelectedClicked" IsEnabled="{x:Bind ViewModel.CanDelete, Mode=OneWay}" ToolTipService.ToolTip="Delete selected annotation (Ctrl+Alt+D)"/>
+                        <TextBlock Text="Keyboard shortcuts" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="ShortcutHelp" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="ShortcutStatus" TextWrapping="Wrap"/>
+                        <TextBlock Text="Screenshot preview: Ctrl+S save · Ctrl+C copy · Ctrl+Q share QR · Ctrl+N new. Feature shortcuts pause while capturing or using a save dialog." TextWrapping="Wrap"/>
                         <TextBlock Text="{x:Bind ViewModel.HistoryShortcuts, Mode=OneWay}" TextWrapping="Wrap"/>
                         <TextBlock Text="{x:Bind ViewModel.HotkeyStatus, Mode=OneWay}" TextWrapping="Wrap"/>
                         <TextBlock Text="{x:Bind ViewModel.PointerStatus, Mode=OneWay}" TextWrapping="Wrap"/>

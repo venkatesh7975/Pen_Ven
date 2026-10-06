@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.Windows.Storage.Pickers;
 using ScreenInk.App.Services;
 using ScreenInk.Sharing;
@@ -26,6 +27,26 @@ public sealed partial class ScreenshotPanel : UserControl, IDisposable
 
     internal async Task LoadPreviewAsync() => Preview.Source = await ScreenshotImage.PreviewAsync(_png);
     private void OnNewClicked(object sender, RoutedEventArgs args) => _owner.TakeNewScreenshot();
+    private void OnSaveShortcut(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (!_disposed && SaveButton.IsEnabled) { OnSaveClicked(this, new()); }
+    }
+    private void OnCopyShortcut(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (!_disposed && CopyButton.IsEnabled) { OnCopyClicked(this, new()); }
+    }
+    private void OnShareShortcut(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (!_disposed && ShareButton.IsEnabled) { OnShareClicked(this, new()); }
+    }
+    private void OnNewShortcut(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (!_disposed && SaveButton.IsEnabled) { OnNewClicked(this, new()); }
+    }
 
     private async void OnSaveClicked(object sender, RoutedEventArgs args)
     {

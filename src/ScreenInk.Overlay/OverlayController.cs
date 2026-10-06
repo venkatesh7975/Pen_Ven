@@ -24,6 +24,7 @@ public sealed class OverlayController : IDisposable
     private readonly nint _controlWindow;
     private readonly bool _keepControlTopmost;
     private readonly bool _toggleRegistered, _hideRegistered;
+    private readonly Dictionary<int, FeatureShortcut> _featureHotkeys = [];
     private bool _disposed, _updating;
     private int _capturedClicks;
     private string _pointerStatus = "No overlay input yet.";
@@ -63,6 +64,8 @@ public sealed class OverlayController : IDisposable
     private InkStyle CurrentStyle => new(PenWidth, Color.Red, Color.Green, Color.Blue);
     public bool HotkeysReady => _toggleRegistered && _hideRegistered;
     public string HotkeyStatus { get; }
+    public string FeatureShortcutStatus { get; }
+    public event Action<FeatureAction>? FeatureShortcutInvoked;
     public OverlayStatus Status => new(Mode, Bounds, _capturedClicks, _pointerStatus, _error, _strokes.Count, _penDetails, Tool, EraserDiameter,
         _history.CanUndo || _builder is not null || _shapeDraft?.IsMeaningful == true || _eraseCommands.Count > 0,
         _history.CanRedo && _builder is null && _shapeDraft?.IsMeaningful != true && _eraseCommands.Count == 0,
@@ -199,7 +202,7 @@ public sealed class OverlayController : IDisposable
         _input.MessageHandler = OnInputMessage;
         _visual.CallbackFailed += OnCallbackFailed;
         _input.CallbackFailed += OnCallbackFailed;
-        // Only these two temporary recovery shortcuts are registered in Phase 2.
+        // Recovery keys remain independent of optional feature shortcut conflicts.
         _toggleRegistered = NativeMethods.RegisterHotKey(_visual.Handle, ToggleHotkey, 0x4003, 0x78);
         var toggleError = _toggleRegistered ? null : new Win32Exception(Marshal.GetLastWin32Error()).Message;
         _hideRegistered = NativeMethods.RegisterHotKey(_visual.Handle, HideHotkey, 0x4003, 0x79);
@@ -207,6 +210,47 @@ public sealed class OverlayController : IDisposable
         HotkeyStatus = HotkeysReady
             ? "Ctrl + Alt + F9: toggle input · Ctrl + Alt + F10: hide overlay"
             : $"Recovery shortcuts unavailable. F9: {toggleError ?? "ready"}; F10: {hideError ?? "ready"}. Draw mode is unavailable until the conflict is resolved.";
+        var unavailable = new List<string>();
+        foreach (var shortcut in FeatureShortcuts.All) {
+            if (NativeMethods.RegisterHotKey(_visual.Handle, shortcut.Id, FeatureShortcuts.Modifiers, shortcut.VirtualKey)) {
+                _featureHotkeys.Add(shortcut.Id, shortcut);
+            } else {
+                unavailable.Add($"{shortcut.Gesture} ({shortcut.Label})");
+            }
+        }
+        FeatureShortcutStatus = unavailable.Count == 0
+            ? "Feature shortcuts work in every mode, including when the toolbar is hidden."
+            : $"Shortcut conflict: {string.Join(", ", unavailable)} unavailable. Use the toolbar for these actions; close the other app and restart ScreenInk to retry.";
+    }
+
+    public bool ApplyFeatureShortcut(FeatureAction action)
+    {
+        VerifyEditable();
+        AnnotationTool? tool = action switch {
+            FeatureAction.Pen => AnnotationTool.Pen,
+            FeatureAction.Eraser => AnnotationTool.StrokeEraser,
+            FeatureAction.Laser => AnnotationTool.Laser,
+            FeatureAction.Line => AnnotationTool.Line,
+            FeatureAction.Arrow => AnnotationTool.Arrow,
+            FeatureAction.Rectangle => AnnotationTool.Rectangle,
+            FeatureAction.Ellipse => AnnotationTool.Ellipse,
+            _ => null
+        };
+        if (tool.HasValue) { SetTool(tool.Value); SetMode(OverlayMode.Draw); return true; }
+        switch (action) {
+            case FeatureAction.Cursor: SetMode(OverlayMode.ClickThrough); break;
+            case FeatureAction.ClearAll: ClearAll(); break;
+            case FeatureAction.Undo: Undo(); break;
+            case FeatureAction.Redo: Redo(); break;
+            case FeatureAction.IncreaseSize:
+            case FeatureAction.DecreaseSize:
+                var direction = action == FeatureAction.IncreaseSize ? 1 : -1;
+                if (Tool == AnnotationTool.StrokeEraser) { SetEraserDiameter(Math.Clamp(EraserDiameter + direction * 4, 4, 128)); }
+                else { SetPenWidth(Math.Clamp(PenWidth + direction, 1, 32)); }
+                break;
+            default: return false;
+        }
+        return true;
     }
 
     public void SetMode(OverlayMode mode)
@@ -433,7 +477,12 @@ public sealed class OverlayController : IDisposable
 
     internal nint? OnVisualMessage(uint message, nuint wParam, nint lParam)
     {
+        if (_disposed) { return null; }
         if (message == NativeMethods.HotKey) {
+            if (_featureHotkeys.TryGetValue((int)wParam, out var shortcut)) {
+                FeatureShortcutInvoked?.Invoke(shortcut.Action);
+                return nint.Zero;
+            }
             if ((int)wParam == HideHotkey) { SetMode(OverlayMode.Disabled); }
             if ((int)wParam == ToggleHotkey) {
                 SetMode(Mode == OverlayMode.Draw ? OverlayMode.ClickThrough : OverlayMode.Draw);
@@ -671,6 +720,9 @@ public sealed class OverlayController : IDisposable
         _visual.Hide();
         if (_toggleRegistered) { NativeMethods.UnregisterHotKey(_visual.Handle, ToggleHotkey); }
         if (_hideRegistered) { NativeMethods.UnregisterHotKey(_visual.Handle, HideHotkey); }
+        foreach (var id in _featureHotkeys.Keys) { NativeMethods.UnregisterHotKey(_visual.Handle, id); }
+        _featureHotkeys.Clear();
+        FeatureShortcutInvoked = null;
         _input.Dispose();
         _visual.Dispose();
         _surface?.Dispose();

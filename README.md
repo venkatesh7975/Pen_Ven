@@ -50,6 +50,28 @@ The renderer retains its pixels and draws each new segment without replaying old
 
 The tests cover grouped history/order, branch invalidation, bounded retention, mixed-edit model comparison, shortcut ownership/conflicts, swept eraser geometry, restored output pixels, hidden history, pen metadata/history conversion, pressure-rendered output pixels, contact interruption and cross-process click-through. They briefly create transparent test windows in two processes. Close any already-running ScreenInk instance before testing so its global shortcuts do not conflict with the test controller.
 
+## Keyboard shortcuts
+
+These shortcuts work while ScreenInk is running, including from another app or with the toolbar hidden. Tool shortcuts reopen the toolbar and enable drawing. Open **More** or press **Ctrl+Alt+H** for the list and any conflicts with other apps.
+
+| Keys | Feature |
+| --- | --- |
+| Ctrl+Alt+P / E / L | Pen / stroke eraser / laser |
+| Ctrl+Alt+1 / 2 / 3 / 4 | Line / arrow / rectangle / ellipse (number row) |
+| Ctrl+Alt+C | Cursor mode |
+| Ctrl+Alt+S | Take a new screenshot |
+| Ctrl+Alt+M | Media and definitions |
+| Ctrl+Alt+K / W | Open color picker / size controls |
+| Ctrl+Alt+Up / Down | Increase / decrease current tool size (pen by 1 px, eraser by 4 px) |
+| Ctrl+Alt+Delete | Clear all annotations, undoable |
+| Ctrl+Alt+D | Delete the annotation selected in More |
+| Ctrl+Alt+Z / Y | Undo / redo in any mode |
+| Ctrl+Alt+H | Help and options |
+| Ctrl+Alt+F9 / F10 | Toggle draw/cursor / hide toolbar and ink |
+| Ctrl+Z / Y | Undo / redo in draw mode or with toolbar focus |
+
+With focus inside the screenshot preview, **Ctrl+S** saves, **Ctrl+C** copies, **Ctrl+Q** opens Share QR, and **Ctrl+N** takes a new screenshot. These preview shortcuts are scoped to the preview. Global feature shortcuts pause during capture and while the screenshot save dialog is open. A new screenshot ends any existing sharing session. A shortcut reserved by another app is reported as unavailable; the toolbar still works. Close the conflicting app and restart ScreenInk to retry registration.
+
 ## Install on this laptop
 
 After setting up the local SDK, run `./scripts/Install-App.ps1` in PowerShell. This builds Release, copies the complete self-contained app to `%LOCALAPPDATA%\Programs\ScreenInk`, and adds **ScreenInk** shortcuts to your Desktop and Start menu. No administrator privileges are needed. Use `-NoBuild` to install an existing Release build. Close the installed app before rerunning the script to update it.
